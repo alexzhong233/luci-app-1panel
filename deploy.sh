@@ -82,9 +82,15 @@ cat <<'EOF'
 装好了。浏览器 Ctrl+Shift+R（Mac 是 Cmd+Shift+R）强刷，左侧菜单：
   NAS → 1Panel
 
-命令行也能直接用（ctl 在 /usr/libexec，没做软链接）：
+页面里有两个标签页，二选一：
+  容器安装  docker compose 跑 moelin/1panel，数据挂 /mnt，可选挂载 root
+  本地安装  官方 install.sh 铺二进制，procd 托管，约 152MB 写在 overlay
+
+命令行等价（ctl 在 /usr/libexec，没做软链接）：
   /usr/libexec/1panel-ctl status
+  /usr/libexec/1panel-ctl container install 10086 1panel '你的密码' '你的入口' /mnt/sda1/Configs/1Panel 0 moelin/1panel:v2
   /usr/libexec/1panel-ctl install 10086 1panel '你的密码' '你的入口' /mnt/sda1/Configs/1Panel
 
-装之前先看 df -h / ：1Panel 的两个二进制约 152MB 要写进 overlay。
+两套互斥：装了一套，另一套的安装按钮会变灰并提示先卸载。
+本地版装之前先看 df -h / ：两个二进制约 152MB 要写进 overlay。
 EOF
