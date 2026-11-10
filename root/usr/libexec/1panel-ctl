@@ -280,13 +280,15 @@ compose_write() {
 PROBE_PORT=""
 PROBE_ENT=""
 PROBE_VER=""
+PROBE_USER=""
 
 probe_panel() {
-	local raw line addr ver
+	local raw line addr ver u
 
 	PROBE_PORT=""
 	PROBE_ENT=""
 	PROBE_VER=""
+	PROBE_USER=""
 
 	case "$1" in
 		container)
@@ -306,6 +308,17 @@ probe_panel() {
 
 	ver=$(printf '%s\n' "$raw" | sed -n '1,/^@@$/p' | pick_version)
 	addr=$(printf '%s\n' "$raw" | sed -n 's#.*://[^:/ ]*:\([0-9][0-9]*\)/\([^ ]*\).*#\1 \2#p' | head -n1)
+
+	# user-info 的第二行是「面板用户: xxx」/「Panel user: xxx」，标签随语言变，
+	# 但冒号后面的用户名不变，所以按最后一个 ": " 切。@@ 之后依次是
+	# 地址行、用户行、密码行、提示行，取第 3 行。
+	line=$(printf '%s\n' "$raw" | sed -n '/^@@$/,$p' | sed -n '3p')
+	case "$line" in
+		*": "*) PROBE_USER=${line##*: } ;;
+	esac
+	case "$PROBE_USER" in
+		*"://"* | *" "*) PROBE_USER="" ;;
+	esac
 
 	PROBE_VER="$ver"
 	if [ -n "$addr" ]; then
@@ -387,6 +400,7 @@ cmd_status() {
 		if probe_panel container; then
 			[ -n "$PROBE_PORT" ] && cport="$PROBE_PORT"
 			[ -n "$PROBE_ENT" ] && cent="$PROBE_ENT"
+			[ -n "$PROBE_USER" ] && cuser="$PROBE_USER"
 			cver="$PROBE_VER"
 		fi
 	fi
@@ -406,6 +420,7 @@ cmd_status() {
 	nport="$PORT_N"
 	nent="$ENT_N"
 	nver=""
+	nuser="$USER_N"
 	npidd=""
 
 	if [ "$npresent" = "1" ]; then
@@ -414,6 +429,7 @@ cmd_status() {
 		if probe_panel native; then
 			[ -n "$PROBE_PORT" ] && nport="$PROBE_PORT"
 			[ -n "$PROBE_ENT" ] && nent="$PROBE_ENT"
+			[ -n "$PROBE_USER" ] && nuser="$PROBE_USER"
 			nver="$PROBE_VER"
 		fi
 		[ "$nrunning" = "1" ] && npidd=$(core_pid)
@@ -425,7 +441,7 @@ cmd_status() {
 	echo "native_datadir=$DATADIR_N"
 	echo "native_port=$nport"
 	echo "native_entrance=$nent"
-	echo "native_username=$USER_N"
+	echo "native_username=$nuser"
 	echo "native_version=$nver"
 	echo "native_datakept=$([ -f "$RUN_DIR_N/db/core.db" ] && echo 1 || echo 0)"
 
@@ -448,7 +464,7 @@ cmd_status() {
 			echo "installed=1"
 			echo "running=$nrunning"
 			echo "port=$nport"
-			echo "username=$USER_N"
+			echo "username=$nuser"
 			echo "entrance=$nent"
 			echo "datadir=$DATADIR_N"
 			echo "rundir=$RUN_DIR_N"
