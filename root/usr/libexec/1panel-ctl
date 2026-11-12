@@ -262,7 +262,10 @@ compose_write() {
 		echo "      - '/var/run/docker.sock:/var/run/docker.sock'"
 		echo "      - '$mnt_opt'"
 		echo "      - '/sys/fs/cgroup:/sys/fs/cgroup'"
-		echo "      - '/etc/localtime:/etc/localtime:ro'"
+		# 不挂 /etc/localtime：OpenWrt 上它是指向 /usr/share/zoneinfo/ 的符号链接，
+		# 目标常常不存在（zoneinfo 没装），Docker 创建挂载源时会 mkdir 已存在的路径，
+		# 报 "mkdir /etc/localtime: file exists" 直接起不来。
+		# 时区已经由上面的 TZ 环境变量给了，容器内 glibc / Go 都认，不需要再挂文件。
 		if [ "$root" = "1" ]; then
 			echo "      # 「挂载 root 路径」勾选后加的一行，作用是面板里能浏览整机文件"
 			echo "      - '/:/ahost'"
@@ -925,13 +928,12 @@ worker_ct_up() {
 		docker rm -f "$CT_NAME" >/dev/null 2>&1
 		set -- docker run -d --name "$CT_NAME" --hostname 1PanelServer \
 			--restart unless-stopped --network host \
-			-e "TZ=$(uci -q get system.@system[0].zonename)" \
+			-e "TZ=$(uci -q get system.@system[0].zonename 2>/dev/null || echo Asia/Shanghai)" \
 			-e "BASE_DIR=$DATADIR_C" -e "PORT=$PORT_C" \
 			-e "ENTRANCE=$ENT_C" -e "USERNAME=$USER_C" \
 			-e "PASSWORD=${P1_PASS:-$PASS_C}" \
 			-v /var/run/docker.sock:/var/run/docker.sock \
-			-v /mnt:/mnt -v /sys/fs/cgroup:/sys/fs/cgroup \
-			-v /etc/localtime:/etc/localtime:ro
+			-v /mnt:/mnt -v /sys/fs/cgroup:/sys/fs/cgroup
 		[ "$ROOTPATH_C" = "1" ] && set -- "$@" -v /:/ahost
 		"$@" "$IMAGE_C" || {
 			set_phase "error:docker run 失败，看上面的输出"
